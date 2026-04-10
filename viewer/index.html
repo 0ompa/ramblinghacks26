@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Crop Viewer</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f0f0f;
+      color: #e0e0e0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 24px;
+    }
+    h1 { font-size: 1.4rem; margin-bottom: 16px; color: #fff; }
+    .controls {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    select, button {
+      background: #1e1e1e;
+      color: #e0e0e0;
+      border: 1px solid #333;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+    button:hover { background: #2a2a2a; }
+    button.active { background: #3b82f6; border-color: #3b82f6; color: #fff; }
+    .video-container {
+      display: flex;
+      gap: 24px;
+      align-items: flex-start;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .video-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .video-wrapper label {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #888;
+      margin-bottom: 8px;
+    }
+    video {
+      border-radius: 8px;
+      background: #000;
+    }
+    #original { max-height: 540px; }
+    #portrait { max-height: 540px; width: auto; }
+    .time-display {
+      font-family: monospace;
+      font-size: 0.85rem;
+      color: #888;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>16:9 → 9:16 Crop Viewer</h1>
+
+  <div class="controls">
+    <select id="clipSelect">
+      <option value="">— select clip —</option>
+    </select>
+    <button id="playPause">Play</button>
+    <button id="restart">Restart</button>
+  </div>
+
+  <div class="video-container">
+    <div class="video-wrapper">
+      <label>Original (16:9)</label>
+      <video id="original" muted></video>
+    </div>
+    <div class="video-wrapper">
+      <label>Portrait (9:16)</label>
+      <video id="portrait" muted></video>
+    </div>
+  </div>
+
+  <div class="time-display" id="timeDisplay">0:00 / 0:00</div>
+
+  <script>
+    const orig = document.getElementById('original');
+    const port = document.getElementById('portrait');
+    const clipSelect = document.getElementById('clipSelect');
+    const playPauseBtn = document.getElementById('playPause');
+    const restartBtn = document.getElementById('restart');
+    const timeDisplay = document.getElementById('timeDisplay');
+
+    /*
+      Clip manifest — edit this list to add clips.
+      Each entry: { name, original, portrait }
+      Paths are relative to this HTML file.
+    */
+    const CLIPS = [
+      // { name: "Game 1 Highlight", original: "../clips/game1.mp4", portrait: "../output/game1_portrait.mp4" },
+    ];
+
+    CLIPS.forEach((clip, i) => {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = clip.name;
+      clipSelect.appendChild(opt);
+    });
+
+    clipSelect.addEventListener('change', () => {
+      const idx = clipSelect.value;
+      if (idx === '') return;
+      const clip = CLIPS[idx];
+      orig.src = clip.original;
+      port.src = clip.portrait;
+      orig.load();
+      port.load();
+      playPauseBtn.textContent = 'Play';
+    });
+
+    function syncPlay() {
+      orig.play();
+      port.currentTime = orig.currentTime;
+      port.play();
+      playPauseBtn.textContent = 'Pause';
+      playPauseBtn.classList.add('active');
+    }
+
+    function syncPause() {
+      orig.pause();
+      port.pause();
+      playPauseBtn.textContent = 'Play';
+      playPauseBtn.classList.remove('active');
+    }
+
+    playPauseBtn.addEventListener('click', () => {
+      if (orig.paused) syncPlay();
+      else syncPause();
+    });
+
+    restartBtn.addEventListener('click', () => {
+      orig.currentTime = 0;
+      port.currentTime = 0;
+      syncPlay();
+    });
+
+    // Keep portrait synced to original's timeupdate
+    orig.addEventListener('timeupdate', () => {
+      if (Math.abs(port.currentTime - orig.currentTime) > 0.15) {
+        port.currentTime = orig.currentTime;
+      }
+      const cur = formatTime(orig.currentTime);
+      const dur = formatTime(orig.duration || 0);
+      timeDisplay.textContent = `${cur} / ${dur}`;
+    });
+
+    orig.addEventListener('ended', syncPause);
+
+    function formatTime(s) {
+      const m = Math.floor(s / 60);
+      const sec = Math.floor(s % 60).toString().padStart(2, '0');
+      return `${m}:${sec}`;
+    }
+  </script>
+</body>
+</html>
