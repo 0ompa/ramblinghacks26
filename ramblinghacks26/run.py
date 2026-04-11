@@ -1,12 +1,12 @@
 import cv2
 from inference import get_model
 
-rf = Roboflow(api_key="R6tRPGl4GmNaGmoDBkWZ")
+rf = Roboflow(api_key=os.environ["ROBOFLOW_API_KEY"])
 
 # pick any basketball model from universe
 model = rf.workspace().project("basketball-xil7x/1n").version(1).model
 
-cap = cv2.VideoCapture("your_video.mp4")
+cap = cv2.VideoCapture("ramblinghacks26/clips/clip5.mp4")
 
 while True:
     ret, frame = cap.read()
