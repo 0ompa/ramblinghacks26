@@ -7,14 +7,21 @@ import shutil
 
 from django.conf import settings
 from django.contrib import messages
+from django.http import Http404, HttpResponse, StreamingHttpResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_http_methods
 
 from .forms import HighlightUploadForm
-from .pipeline import PipelineError, process_highlight_to_portrait, try_transcode_portrait_h264
+from .pipeline import (
+    PipelineError,
+    process_highlight_to_portrait,
+    try_export_youtube_shorts,
+    try_transcode_portrait_h264,
+)
 
 
 _CLIP_LANDSCAPE = re.compile(r"^clip(\d+)_landscape\.mp4$", re.IGNORECASE)
+_CLIP_ID = re.compile(r"^clip(\d+)$", re.IGNORECASE)
 
 
 def _portrait_basename(videos_dir: Path, n_str: str) -> str | None:
@@ -69,6 +76,85 @@ def discover_clips(videos_dir: Path) -> list[dict]:
             }
         )
     return clips
+
+
+def _resolve_clip_pair(clip_id: str) -> tuple[Path, Path] | None:
+    """Return (portrait_path, landscape_path) under VIDEOS_DIR, or None."""
+    m = _CLIP_ID.fullmatch((clip_id or "").strip())
+    if not m:
+        return None
+    n_str = m.group(1)
+    videos_dir = Path(settings.VIDEOS_DIR)
+    land = videos_dir / f"clip{n_str}_landscape.mp4"
+    port_name = _portrait_basename(videos_dir, n_str)
+    if not land.is_file() or not port_name:
+        return None
+    port = videos_dir / port_name
+    if not port.is_file():
+        return None
+    return port, land
+
+
+@require_http_methods(["GET"])
+def export_youtube_shorts(request, clip_id: str):
+    """
+    Download a YouTube Shorts–friendly MP4 (1080x1920 H.264 + AAC when available).
+    Requires ffmpeg on the server PATH.
+    """
+    pair = _resolve_clip_pair(clip_id)
+    if not pair:
+        raise Http404("Clip not found")
+
+    portrait_path, landscape_path = pair
+
+    if not shutil.which("ffmpeg"):
+        return HttpResponse(
+            "ffmpeg is not installed or not on PATH. Install ffmpeg to export for YouTube.",
+            status=503,
+            content_type="text/plain; charset=utf-8",
+        )
+
+    fd, tmp_path = tempfile.mkstemp(suffix=".mp4")
+    os.close(fd)
+    ok = try_export_youtube_shorts(
+        str(portrait_path),
+        str(landscape_path),
+        tmp_path,
+    )
+    if not ok:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        return HttpResponse(
+            "Export failed (ffmpeg). The clip may be corrupt or unsupported.",
+            status=500,
+            content_type="text/plain; charset=utf-8",
+        )
+
+    m_id = _CLIP_ID.fullmatch(clip_id.strip())
+    safe_name = f"clip{m_id.group(1)}_youtube_shorts.mp4" if m_id else "youtube_shorts.mp4"
+
+    def stream_and_remove():
+        try:
+            with open(tmp_path, "rb") as fh:
+                while True:
+                    chunk = fh.read(65536)
+                    if not chunk:
+                        break
+                    yield chunk
+        finally:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+
+    resp = StreamingHttpResponse(
+        stream_and_remove(),
+        content_type="video/mp4",
+    )
+    resp["Content-Disposition"] = f'attachment; filename="{safe_name}"'
+    return resp
 
 
 def index(request):

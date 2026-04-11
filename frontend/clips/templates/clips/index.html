@@ -265,6 +265,47 @@
       flex-shrink: 0;
     }
 
+    .player-label-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      width: 100%;
+      max-width: 100%;
+    }
+
+    .player-label-row .player-label {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .export-youtube-btn {
+      flex-shrink: 0;
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.62rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      text-decoration: none;
+      color: var(--teal);
+      padding: 5px 10px;
+      border: 1px solid rgba(0, 229, 200, 0.45);
+      background: rgba(0, 229, 200, 0.06);
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
+      white-space: nowrap;
+    }
+
+    .export-youtube-btn:hover {
+      background: var(--teal-dim);
+      color: var(--white);
+      border-color: var(--teal);
+    }
+
+    .export-youtube-btn[aria-disabled="true"] {
+      opacity: 0.35;
+      pointer-events: none;
+    }
+
     .video-wrapper {
       background: #000;
       border-radius: 0;
@@ -466,7 +507,13 @@
       </div>
 
       <div class="player-block">
-        <div class="player-label">Portrait (9:16)</div>
+        <div class="player-label-row">
+          <div class="player-label">Portrait (9:16)</div>
+          <a class="export-youtube-btn" id="export-youtube-btn" href="#"
+            title="Download 1080×1920 H.264 (YouTube Shorts–friendly). Requires ffmpeg on the server.">
+            Export
+          </a>
+        </div>
         <div class="video-wrapper" id="portrait-wrapper">
           <video id="video-portrait" preload="metadata"></video>
         </div>
@@ -509,6 +556,7 @@
     const iconPlay = document.getElementById('icon-play');
     const iconPause = document.getElementById('icon-pause');
     const comparisonArea = document.getElementById('comparison-area');
+    const exportYoutubeBtn = document.getElementById('export-youtube-btn');
 
     let activeClipIdx = 0;
     let isSeeking = false;
@@ -546,9 +594,14 @@
         wrap.innerHTML = 'No paired clips found. Use <strong>+ Add</strong> to upload an MP4, or place <code>clipN_landscape.mp4</code> plus <code>clipN_portrait.mp4</code> (or <code>.webm</code>) under <code>out/frontend/videos</code>.';
         selectorEl.appendChild(wrap);
         comparisonArea.style.display = 'none';
+        if (exportYoutubeBtn) {
+          exportYoutubeBtn.setAttribute('aria-disabled', 'true');
+          exportYoutubeBtn.removeAttribute('href');
+        }
         return;
       }
       comparisonArea.style.display = '';
+      if (exportYoutubeBtn) exportYoutubeBtn.removeAttribute('aria-disabled');
       CLIPS.forEach((clip, i) => {
         const card = document.createElement('div');
         card.className = 'clip-card' + (i === activeClipIdx ? ' active' : '');
@@ -567,6 +620,11 @@
       activeClipIdx = idx;
 
       const clip = CLIPS[idx];
+
+      if (exportYoutubeBtn) {
+        exportYoutubeBtn.href = '/export/youtube/' + encodeURIComponent(clip.id) + '/';
+        exportYoutubeBtn.removeAttribute('aria-disabled');
+      }
 
       pause();
 
