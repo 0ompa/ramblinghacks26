@@ -12,8 +12,12 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+REPO_ROOT = BASE_DIR.parent
+load_dotenv(REPO_ROOT / ".env")
 
 
 # Quick-start development settings - unsuitable for production
@@ -27,9 +31,13 @@ DEBUG = True
 
 ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
 
-# Repo root (parent of this `frontend/` package); generated clips live under out/frontend/videos
-REPO_ROOT = BASE_DIR.parent
+# Generated clips for the site (landscape + portrait pairs)
 VIDEOS_DIR = REPO_ROOT / "out" / "frontend" / "videos"
+
+# Upload limits for highlight MP4s (pipeline can be slow / large)
+FILE_UPLOAD_MAX_MEMORY_SIZE = 25 * 1024 * 1024
+DATA_UPLOAD_MAX_MEMORY_SIZE = 25 * 1024 * 1024
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 2
 
 
 # Application definition

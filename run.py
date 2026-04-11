@@ -1,5 +1,9 @@
 """Portrait crop pipeline using the Roboflow basketball model.
 
+Uses Roboflow's **hosted HTTP API** per frame (default ``https://detect.roboflow.com``) — no
+``inference`` pip package. Set ``ROBOFLOW_API_KEY``; override ``ROBOFLOW_API_BASE`` if needed
+(e.g. ``https://serverless.roboflow.com``).
+
 Usage:
     python run.py --input ramblinghacks26/clips/clip5.mp4 --output out/clip5_portrait.mp4
     python run.py --input ramblinghacks26/clips/  --output out/   # batch
@@ -22,9 +26,14 @@ Why two passes?
 from __future__ import annotations
 
 import argparse
+import json
 import os
-import sys
+import uuid
 import warnings
+import urllib.error
+import urllib.parse
+import urllib.request
+from typing import Any
 
 import cv2
 import numpy as np
@@ -37,6 +46,12 @@ load_dotenv()
 API_KEY  = os.environ["ROBOFLOW_API_KEY"]
 MODEL_ID = "basketball-xil7x/1"
 
+# Hosted inference over HTTPS (no ``inference`` pip package).
+# https://inference.roboflow.com/using_inference/http_api/
+ROBOFLOW_API_BASE = os.environ.get(
+    "ROBOFLOW_API_BASE", "https://detect.roboflow.com"
+).rstrip("/")
+
 # Reject any ball detection that jumps more than this many px from the last
 # accepted position (per frame elapsed).  Anything larger is a false positive.
 MAX_SPEED_PX_PER_FRAME = 55   # generous: ~55 px/frame ≈ fast pass at 1080p/25fps
@@ -48,6 +63,124 @@ MEDIAN_WIN = 7
 # After outlier rejection, fill gaps and then apply a light Gaussian blur so
 # the crop centre moves smoothly rather than linearly.
 SMOOTH_SIGMA_FRAMES = 4       # Gaussian sigma in frames
+
+
+# ---------------------------------------------------------------------------
+# Roboflow Hosted API (HTTP) — same contract as old ``inference.get_model`` SDK
+# ---------------------------------------------------------------------------
+
+class _Prediction:
+    __slots__ = ("class_name", "x", "y", "confidence")
+
+    def __init__(self, d: dict[str, Any]) -> None:
+        self.class_name = str(d.get("class") or d.get("class_name") or "")
+        self.x = float(d["x"])
+        self.y = float(d["y"])
+        self.confidence = float(d.get("confidence") or 0.0)
+
+
+class _InferBatch:
+    __slots__ = ("predictions",)
+
+    def __init__(self, predictions: list[_Prediction]) -> None:
+        self.predictions = predictions
+
+
+class RoboflowHttpModel:
+    """
+    One frame -> POST JPEG to Roboflow Serverless API; parses JSON predictions.
+    Slower than a local SDK but works on any Python version with stdlib only.
+    """
+
+    def __init__(
+        self,
+        api_key: str,
+        model_id: str,
+        *,
+        api_base: str | None = None,
+        jpeg_quality: int = 85,
+    ) -> None:
+        parts = model_id.strip("/").split("/")
+        if len(parts) != 2 or not parts[0] or not parts[1]:
+            raise ValueError(
+                f"MODEL_ID must be workspace/version (e.g. basketball-xil7x/1), got {model_id!r}"
+            )
+        self._dataset_id, self._version_id = parts[0], parts[1]
+        self._api_key = api_key
+        self._base = (api_base or ROBOFLOW_API_BASE).rstrip("/")
+        self._jpeg_quality = int(jpeg_quality)
+
+    def infer(self, frame: np.ndarray) -> list[_InferBatch]:
+        ok, buf = cv2.imencode(
+            ".jpg",
+            frame,
+            [int(cv2.IMWRITE_JPEG_QUALITY), self._jpeg_quality],
+        )
+        if not ok:
+            raise RuntimeError("cv2.imencode failed for frame")
+        jpeg = buf.tobytes()
+
+        q = urllib.parse.urlencode(
+            {
+                "api_key": self._api_key,
+                "format": "json",
+            }
+        )
+        url = f"{self._base}/{self._dataset_id}/{self._version_id}?{q}"
+
+        boundary = f"----------{uuid.uuid4().hex}"
+        crlf = b"\r\n"
+        body = (
+            f"--{boundary}\r\n"
+            f'Content-Disposition: form-data; name="file"; filename="f.jpg"\r\n'
+            f"Content-Type: image/jpeg\r\n\r\n"
+        ).encode("ascii")
+        body += jpeg + crlf + f"--{boundary}--\r\n".encode("ascii")
+
+        req = urllib.request.Request(
+            url,
+            data=body,
+            method="POST",
+            headers={
+                "Content-Type": f"multipart/form-data; boundary={boundary}",
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                raw = resp.read()
+        except urllib.error.HTTPError as e:
+            detail = e.read().decode("utf-8", errors="replace")[:2000]
+            raise RuntimeError(
+                f"Roboflow HTTP {e.code} for {self._dataset_id}/{self._version_id}: {detail}"
+            ) from e
+        except urllib.error.URLError as e:
+            raise RuntimeError(f"Roboflow request failed: {e}") from e
+
+        try:
+            payload = json.loads(raw.decode("utf-8"))
+        except json.JSONDecodeError as e:
+            raise RuntimeError(f"Roboflow returned non-JSON: {raw[:500]!r}") from e
+
+        preds_raw = payload.get("predictions")
+        if not isinstance(preds_raw, list):
+            preds_raw = []
+
+        preds = [_Prediction(p) for p in preds_raw if isinstance(p, dict)]
+        return [_InferBatch(preds)]
+
+
+def load_roboflow_model(
+    api_key: str | None = None,
+    model_id: str | None = None,
+    *,
+    api_base: str | None = None,
+) -> RoboflowHttpModel:
+    """Load hosted model via HTTP (no ``inference`` package)."""
+    key = api_key or os.environ.get("ROBOFLOW_API_KEY")
+    if not key:
+        raise KeyError("ROBOFLOW_API_KEY")
+    mid = model_id or MODEL_ID
+    return RoboflowHttpModel(key, mid, api_base=api_base or ROBOFLOW_API_BASE)
 
 
 # ---------------------------------------------------------------------------
@@ -278,9 +411,8 @@ def parse_args():
 def main():
     args = parse_args()
 
-    print("Loading Roboflow model …", end=" ", flush=True)
-    from inference import get_model
-    model = get_model(MODEL_ID, api_key=API_KEY)
+    print("Roboflow hosted API …", end=" ", flush=True)
+    model = load_roboflow_model()
     print("OK")
 
     if os.path.isdir(args.input):

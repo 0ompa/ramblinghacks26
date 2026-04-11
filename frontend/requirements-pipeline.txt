@@ -1,0 +1,11 @@
+# Optional: same venv as Django for “+ Add” / portrait pipeline (OpenCV + Roboflow HTTP API).
+#
+# Ball detection uses Roboflow’s hosted REST API (see repo-root run.py); no ``inference`` package.
+# You still need ROBOFLOW_API_KEY and network access while processing uploads.
+#
+# pip install -r requirements.txt -r requirements-pipeline.txt
+-r requirements.txt
+
+opencv-python-headless>=4.8
+numpy>=1.24
+scipy>=1.10

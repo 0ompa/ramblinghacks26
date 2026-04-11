@@ -92,7 +92,15 @@
       border-bottom: 1px solid #181818;
     }
 
+    .clip-selector-row {
+      display: flex;
+      align-items: stretch;
+      gap: 10px;
+    }
+
     .clip-selector {
+      flex: 1;
+      min-width: 0;
       display: flex;
       gap: 6px;
       overflow-x: auto;
@@ -160,6 +168,55 @@
       letter-spacing: 0.08em;
       text-transform: uppercase;
       color: var(--teal);
+    }
+
+    .clip-add-form {
+      flex-shrink: 0;
+      display: flex;
+      align-items: stretch;
+    }
+
+    .clip-add-btn {
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 8px 16px 8px 14px;
+      min-width: 88px;
+      cursor: pointer;
+      border: 1px dashed rgba(0, 229, 200, 0.45);
+      border-left: 3px solid var(--teal);
+      border-radius: 0;
+      background: var(--card-bg);
+      color: var(--teal);
+      transition: border-color 0.12s, background 0.12s, color 0.12s;
+      clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+      align-self: stretch;
+    }
+
+    .clip-add-btn:hover:not(:disabled) {
+      background: var(--teal-dim);
+      border-style: solid;
+      border-color: var(--teal);
+      color: var(--white);
+    }
+
+    .clip-add-btn:disabled {
+      opacity: 0.65;
+      cursor: wait;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
     }
 
     .comparison-area {
@@ -352,6 +409,20 @@
       font-size: 0.75rem;
       color: var(--teal);
     }
+
+    .messages {
+      padding: 8px 24px;
+      font-size: 0.8rem;
+      border-bottom: 1px solid #181818;
+    }
+
+    .messages .success {
+      color: var(--teal);
+    }
+
+    .messages .error {
+      color: #ff6b6b;
+    }
   </style>
 </head>
 
@@ -362,8 +433,26 @@
     <p>From the Field to the Feed</p>
   </header>
 
+  {% if messages %}
+  <div class="messages">
+    {% for message in messages %}
+    <div class="{{ message.tags }}">{{ message }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
   <div class="clip-selector-wrapper">
-    <div class="clip-selector" id="clip-selector"></div>
+    <div class="clip-selector-row">
+      <div class="clip-selector" id="clip-selector"></div>
+      <form id="upload-highlight-form" class="clip-add-form" method="post" action="{% url 'upload_highlight' %}"
+        enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="file" name="video" id="id_video" class="sr-only" accept=".mp4,video/mp4" tabindex="-1" />
+        <button type="button" class="clip-add-btn" id="add-video-btn">
+          + Add
+        </button>
+      </form>
+    </div>
   </div>
 
   <div class="comparison-area" id="comparison-area">
@@ -454,7 +543,7 @@
       if (!CLIPS.length) {
         const wrap = document.createElement('div');
         wrap.className = 'no-clips-msg';
-        wrap.innerHTML = 'No paired clips found. Add <code>clipN.mp4</code> and <code>clipN_portrait.mp4</code> under <code>out/frontend/videos</code>, then refresh.';
+        wrap.innerHTML = 'No paired clips found. Use <strong>+ Add</strong> to upload an MP4, or place <code>clipN_landscape.mp4</code> plus <code>clipN_portrait.mp4</code> (or <code>.webm</code>) under <code>out/frontend/videos</code>.';
         selectorEl.appendChild(wrap);
         comparisonArea.style.display = 'none';
         return;
@@ -571,6 +660,22 @@
       const m = Math.floor(s / 60);
       const sec = Math.floor(s % 60);
       return `${m}:${sec.toString().padStart(2, '0')}`;
+    }
+
+    const uploadForm = document.getElementById('upload-highlight-form');
+    const uploadInput = document.getElementById('id_video');
+    const addVideoBtn = document.getElementById('add-video-btn');
+    if (uploadForm && uploadInput && addVideoBtn) {
+      addVideoBtn.setAttribute('aria-label', 'Add highlight MP4');
+      addVideoBtn.setAttribute('title', 'Upload an MP4 — runs the portrait pipeline and adds a new tab');
+      addVideoBtn.addEventListener('click', () => uploadInput.click());
+      uploadInput.addEventListener('change', () => {
+        if (uploadInput.files && uploadInput.files.length) {
+          addVideoBtn.disabled = true;
+          addVideoBtn.textContent = '…';
+          uploadForm.submit();
+        }
+      });
     }
 
     buildSelector();
