@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c \"import cv2, numpy; print\\(cv2.__version__, numpy.__version__\\)\")",
+      "Bash(python3 main.py --input clips/clip1.mp4 --jsonl out/clip1.jsonl --no-video --end 60)",
+      "Bash(python3 main.py --input clips/clip1.mp4 --out out/clip1_tracked.mp4 --crop-out out/clip1_crop.mp4 --jsonl out/clip1.jsonl)",
+      "Bash(python3 -c ':*)",
+      "Bash(python3 main.py --input clips/clip1.mp4 --dump-first out/first.jpg)",
+      "Bash(python3 main.py --input clips/clip1.mp4 --seed-xy 1435 485 --out out/tracked2.mp4 --crop-out out/crop2.mp4 --jsonl out/track2.jsonl)",
+      "Bash(python3 main.py --input clips/clip1.mp4 --seed-xy 1435 485 --out out/tracked3.mp4 --crop-out out/crop3.mp4 --jsonl out/track3.jsonl)",
+      "Bash(python3:*)",
+      "Read(//mnt/c/Users/Ibrah/ObsidianContext/**)",
+      "Read(//mnt/c/Users/Ibrah/**)",
+      "Bash(python -c \"import matplotlib; print\\(matplotlib.get_backend\\(\\)\\); import tkinter; print\\('tkinter ok'\\)\")",
+      "Bash(pip3 install:*)",
+      "Bash(jobs)",
+      "Bash(wait)",
+      "Bash(rm -rf out)",
+      "Bash(mkdir -p out)"
+    ]
+  }
+}
