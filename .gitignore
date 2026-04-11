@@ -64,3 +64,16 @@ Thumbs.db
 # Environment / Secrets
 # ----------------------
 .env
+.claude
+
+roboflow-venv/                                                                                                                                              
+  inference/                                                                                                                                                  
+  ramblinghacks26/all_images/                               
+  ramblinghacks26/frames/    
+  ramblinghacks26/dataset/
+  ramblinghacks26/labels/ 
+  ramblinghacks26/models/
+  ramblinghacks26/out/                                                                                                                                        
+  ramblinghacks26/tools/
+  ramblinghacks26/tracker/                                                                                                                                    
+  *.docx        
