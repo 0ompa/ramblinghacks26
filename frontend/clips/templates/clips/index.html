@@ -136,7 +136,7 @@
       display: flex;
       flex-direction: column;
       gap: 3px;
-      min-width: 128px;
+      min-width: 140px;
       clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
     }
 
@@ -150,6 +150,13 @@
       background: var(--teal-dim);
     }
 
+    .clip-card-head {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+
     .clip-card .clip-title {
       font-family: 'Oswald', sans-serif;
       font-size: 0.82rem;
@@ -160,6 +167,55 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .clip-rename-btn {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      padding: 0;
+      border: 1px solid transparent;
+      border-radius: 0;
+      background: transparent;
+      color: var(--gray-text);
+      cursor: pointer;
+      transition: color 0.12s, background 0.12s, border-color 0.12s;
+    }
+
+    .clip-rename-btn:hover {
+      color: var(--teal);
+      background: rgba(0, 229, 200, 0.08);
+      border-color: rgba(0, 229, 200, 0.35);
+    }
+
+    .clip-rename-btn:focus-visible {
+      outline: 2px solid var(--teal);
+      outline-offset: 1px;
+    }
+
+    .clip-title-input {
+      flex: 1;
+      min-width: 0;
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.82rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--white);
+      background: #0d0d0d;
+      border: 1px solid var(--teal);
+      padding: 2px 6px;
+      border-radius: 0;
+    }
+
+    .clip-title-input:focus {
+      outline: none;
+      box-shadow: 0 0 0 1px var(--teal);
     }
 
     .clip-card .clip-tag {
@@ -558,6 +614,129 @@
     const comparisonArea = document.getElementById('comparison-area');
     const exportYoutubeBtn = document.getElementById('export-youtube-btn');
 
+    const CLIP_TAB_TITLE_KEY = 'highlights_clip_tab_titles';
+    let renameState = null;
+
+    function readTitleMap() {
+      try {
+        const j = localStorage.getItem(CLIP_TAB_TITLE_KEY);
+        return j ? JSON.parse(j) : {};
+      } catch {
+        return {};
+      }
+    }
+
+    function writeTitleMap(m) {
+      try {
+        localStorage.setItem(CLIP_TAB_TITLE_KEY, JSON.stringify(m));
+      } catch { /* quota / private mode */ }
+    }
+
+    function getDisplayTitle(clip) {
+      const m = readTitleMap();
+      const t = m[clip.id];
+      return (typeof t === 'string' && t.trim()) ? t.trim() : clip.title;
+    }
+
+    function persistTabTitle(clipId, displayTitle, defaultTitle) {
+      const m = readTitleMap();
+      if (!displayTitle || displayTitle === defaultTitle) {
+        delete m[clipId];
+      } else {
+        m[clipId] = displayTitle;
+      }
+      writeTitleMap(m);
+    }
+
+    function escapeAttr(s) {
+      return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+    }
+
+    const RENAME_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14"><path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1.003 1.003 0 0 0 0-1.41l-2.34-2.34a1.003 1.003 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>';
+
+    function buildCardHeadHtml(clip, displayTitle) {
+      return `
+        <div class="clip-card-head">
+          <div class="clip-title"></div>
+          <button type="button" class="clip-rename-btn" aria-label="Rename ${escapeAttr(displayTitle)}" title="Rename tab">${RENAME_SVG}</button>
+        </div>
+        <div class="clip-tag">${clip.play_type}</div>
+      `;
+    }
+
+    function wireRenameOnCard(card, clip) {
+      const titleEl = card.querySelector('.clip-title');
+      const displayTitle = getDisplayTitle(clip);
+      titleEl.textContent = displayTitle;
+
+      const btn = card.querySelector('.clip-rename-btn');
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        startTabRename(card, clip);
+      });
+    }
+
+    function startTabRename(card, clip) {
+      if (renameState) {
+        finishTabRename(renameState.saveOnFinish);
+      }
+      const head = card.querySelector('.clip-card-head');
+      const titleEl = card.querySelector('.clip-title');
+      const prevTitle = titleEl.textContent;
+      head.innerHTML = `
+        <input type="text" class="clip-title-input" value="${escapeAttr(prevTitle)}" maxlength="80" aria-label="Tab name" />
+      `;
+      const input = head.querySelector('.clip-title-input');
+      input.focus();
+      input.select();
+
+      renameState = { card, clip, input, prevTitle, saveOnFinish: true };
+
+      input.addEventListener('click', (e) => e.stopPropagation());
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          renameState.saveOnFinish = true;
+          input.blur();
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          renameState.saveOnFinish = false;
+          input.blur();
+        }
+      });
+      input.addEventListener('blur', () => {
+        const st = renameState;
+        if (!st || st.input !== input) return;
+        const save = st.saveOnFinish !== false;
+        finishTabRename(save);
+      });
+    }
+
+    function finishTabRename(save) {
+      const st = renameState;
+      if (!st) return;
+      const { card, clip, input, prevTitle } = st;
+      renameState = null;
+
+      const defaultTitle = clip.title;
+      let display;
+      if (save) {
+        const raw = (input.value || '').trim();
+        if (!raw || raw === defaultTitle) {
+          display = defaultTitle;
+          persistTabTitle(clip.id, display, defaultTitle);
+        } else {
+          display = raw;
+          persistTabTitle(clip.id, display, defaultTitle);
+        }
+      } else {
+        display = prevTitle;
+      }
+
+      card.innerHTML = buildCardHeadHtml(clip, display);
+      wireRenameOnCard(card, clip);
+    }
+
     let activeClipIdx = 0;
     let isSeeking = false;
     let syncGuard = false;
@@ -605,11 +784,12 @@
       CLIPS.forEach((clip, i) => {
         const card = document.createElement('div');
         card.className = 'clip-card' + (i === activeClipIdx ? ' active' : '');
-        card.innerHTML = `
-          <div class="clip-title">${clip.title}</div>
-          <div class="clip-tag">${clip.play_type}</div>
-        `;
-        card.addEventListener('click', () => loadClip(i));
+        card.innerHTML = buildCardHeadHtml(clip, getDisplayTitle(clip));
+        wireRenameOnCard(card, clip);
+        card.addEventListener('click', (e) => {
+          if (e.target.closest('.clip-title-input')) return;
+          loadClip(i);
+        });
         selectorEl.appendChild(card);
       });
     }
