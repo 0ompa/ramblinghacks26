@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PlayOn Highlights</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Oswald:wght@600;700&family=Barlow:wght@400;500;600&family=Roboto+Mono:wght@500&display=swap"
+    rel="stylesheet" />
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #0a0a0a;
+      --header-bg: #111111;
+      --card-bg: #161616;
+      --card-border: #242424;
+      --teal: #00e5c8;
+      --teal-dim: rgba(0, 229, 200, 0.07);
+      --white: #ffffff;
+      --gray-text: #6a6a6a;
+      --seek-track: #232323;
+      --controls-bg: #0d0d0d;
+    }
+
+    body {
+      background-color: var(--bg);
+      /* Subtle diagonal noise — breaks the flat #0a0a0a look */
+      background-image: repeating-linear-gradient(-45deg,
+          transparent 0px,
+          transparent 3px,
+          rgba(255, 255, 255, 0.016) 3px,
+          rgba(255, 255, 255, 0.016) 4px);
+      color: var(--white);
+      font-family: 'Barlow', system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* ── HEADER — broadcast graphic package ── */
+    header {
+      background: var(--header-bg);
+      /* Bold teal stripe flush left — the accent bar */
+      border-left: 5px solid var(--teal);
+      border-bottom: 1px solid #1a1a1a;
+      padding: 0 28px;
+      height: 52px;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 18px;
+      flex-shrink: 0;
+    }
+
+    header h1 {
+      font-family: 'Oswald', sans-serif;
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      color: var(--white);
+      line-height: 1;
+      text-transform: uppercase;
+      white-space: nowrap;
+      padding-right: 18px;
+      border-right: 1px solid #2a2a2a;
+    }
+
+    header h1 span {
+      color: var(--teal);
+    }
+
+    header p {
+      font-size: 0.6rem;
+      font-weight: 600;
+      color: var(--gray-text);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    /* ── CLIP SELECTOR — scoreboard tabs ── */
+    .clip-selector-wrapper {
+      padding: 10px 24px 8px;
+      flex-shrink: 0;
+      border-bottom: 1px solid #181818;
+    }
+
+    .clip-selector {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--card-border) transparent;
+    }
+
+    .clip-selector::-webkit-scrollbar {
+      height: 2px;
+    }
+
+    .clip-selector::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .clip-selector::-webkit-scrollbar-thumb {
+      background: var(--card-border);
+      border-radius: 0;
+    }
+
+    .clip-card {
+      flex-shrink: 0;
+      background: var(--card-bg);
+      /* All borders thin + transparent left slot; left border = active indicator */
+      border-top: 1px solid var(--card-border);
+      border-right: 1px solid var(--card-border);
+      border-bottom: 1px solid var(--card-border);
+      border-left: 3px solid transparent;
+      border-radius: 0;
+      padding: 8px 14px 8px 13px;
+      cursor: pointer;
+      transition: border-left-color 0.12s, background 0.12s;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      min-width: 128px;
+      /* Cut top-right corner — angular scoreboard tab */
+      clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+    }
+
+    .clip-card:hover {
+      border-left-color: rgba(0, 229, 200, 0.4);
+      background: rgba(255, 255, 255, 0.025);
+    }
+
+    .clip-card.active {
+      border-left-color: var(--teal);
+      background: var(--teal-dim);
+    }
+
+    .clip-card .clip-title {
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.82rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--white);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .clip-card .clip-tag {
+      font-size: 0.58rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--teal);
+    }
+
+    /* ── MAIN COMPARISON AREA ── */
+    .comparison-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 12px 24px 0;
+      gap: 12px;
+      min-height: 0;
+    }
+
+    .players-row {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      min-height: 0;
+    }
+
+    .player-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Broadcast lower-third label — teal channel-indicator bar left of text */
+    .player-label {
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--gray-text);
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .player-label::before {
+      content: '';
+      display: block;
+      width: 3px;
+      height: 11px;
+      background: var(--teal);
+      flex-shrink: 0;
+    }
+
+    /* Broadcast frame — sharp corners, teal top edge only */
+    .video-wrapper {
+      background: #000;
+      border-radius: 0;
+      overflow: hidden;
+      border: 1px solid #1c1c1c;
+      border-top: 2px solid var(--teal);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .video-wrapper video {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    /* Sized by JS — aspect-ratio as hint only */
+    #landscape-wrapper {
+      aspect-ratio: 16 / 9;
+    }
+
+    #portrait-wrapper {
+      aspect-ratio: 9 / 16;
+    }
+
+    /* ── CONTROLS — chyron / score-ticker strip ── */
+    .controls {
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      /* Break out of .comparison-area's horizontal padding to span full width */
+      margin: 0 -24px;
+      width: calc(100% + 48px);
+      background: var(--controls-bg);
+      border-top: 1px solid #1e1e1e;
+      padding: 12px 24px 14px;
+    }
+
+    .seek-row {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* Broadcast clock — monospace */
+    .time-display {
+      font-family: 'Roboto Mono', 'Courier New', monospace;
+      font-size: 0.68rem;
+      font-weight: 500;
+      color: var(--gray-text);
+      white-space: nowrap;
+      min-width: 40px;
+      letter-spacing: 0.02em;
+    }
+
+    .time-display.right {
+      text-align: right;
+    }
+
+    /* Seek bar — flat, sharp-cornered thumb */
+    #seek-bar {
+      flex: 1;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 3px;
+      border-radius: 0;
+      outline: none;
+      cursor: pointer;
+      transition: height 0.1s;
+      background: linear-gradient(to right,
+          var(--teal) 0%,
+          var(--teal) var(--seek-pct, 0%),
+          var(--seek-track) var(--seek-pct, 0%),
+          var(--seek-track) 100%);
+    }
+
+    #seek-bar:hover {
+      height: 5px;
+    }
+
+    #seek-bar::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 11px;
+      height: 11px;
+      border-radius: 0;
+      background: var(--teal);
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+
+    #seek-bar::-webkit-slider-thumb:hover {
+      transform: scale(1.25);
+    }
+
+    #seek-bar::-moz-range-thumb {
+      width: 11px;
+      height: 11px;
+      border-radius: 0;
+      background: var(--teal);
+      cursor: pointer;
+      border: none;
+    }
+
+    /* Play button — diamond (square rotated 45°) */
+    .play-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 0;
+      border: none;
+      background: var(--teal);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transform: rotate(45deg);
+      transition: transform 0.1s, box-shadow 0.1s;
+      flex-shrink: 0;
+    }
+
+    .play-btn:hover {
+      transform: rotate(45deg) scale(1.12);
+      box-shadow: 0 0 18px rgba(0, 229, 200, 0.38);
+    }
+
+    /* Counter-rotate icon so it reads upright inside the diamond */
+    .play-btn svg {
+      width: 16px;
+      height: 16px;
+      fill: #000;
+      transform: rotate(-45deg);
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <h1>PlayOn <span>Highlights</span></h1>
+    <p>From the Field to the Feed</p>
+  </header>
+
+  <!-- CLIP SELECTOR -->
+  <div class="clip-selector-wrapper">
+    <div class="clip-selector" id="clip-selector"></div>
+  </div>
+
+  <!-- MAIN AREA -->
+  <div class="comparison-area">
+    <div class="players-row" id="players-row">
+
+      <div class="player-block">
+        <div class="player-label">Original (16:9)</div>
+        <div class="video-wrapper" id="landscape-wrapper">
+          <video id="video-landscape" preload="metadata"></video>
+        </div>
+      </div>
+
+      <div class="player-block">
+        <div class="player-label">Portrait (9:16)</div>
+        <div class="video-wrapper" id="portrait-wrapper">
+          <video id="video-portrait" preload="metadata"></video>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- CONTROLS -->
+    <div class="controls">
+      <div class="seek-row">
+        <span class="time-display" id="time-current">0:00</span>
+        <input type="range" id="seek-bar" min="0" max="100" step="0.01" value="0" />
+        <span class="time-display right" id="time-duration">0:00</span>
+      </div>
+      <button class="play-btn" id="play-btn" aria-label="Play / Pause">
+        <svg id="icon-play" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M8 5v14l11-7z" />
+        </svg>
+        <svg id="icon-pause" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="display:none">
+          <path d="M6 19h4V5H6zm8-14v14h4V5z" />
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // ── CLIP DATA ──────────────────────────────────────────────────────────────
+    // Replace original_video_url / portrait_video_url with real relative paths.
+    // Add more entries to the array to extend the selector.
+    const CLIPS = [
+      {
+        id: 'clip1',
+        title: 'Fast Break Dunk',
+        play_type: 'Dunk',
+        original_video_url: 'videos/clip1.mp4',
+        portrait_video_url: 'videos/clip1_portrait.mp4',
+      },
+      {
+        id: 'clip2',
+        title: 'Buzzer Beater Three',
+        play_type: 'Buzzer Beater',
+        original_video_url: 'videos/clip2.mp4',
+        portrait_video_url: 'videos/clip2_portrait.mp4',
+      },
+      {
+        id: 'clip3',
+        title: 'Full-Court Steal',
+        play_type: 'Steal',
+        original_video_url: 'videos/clip3.mp4',
+        portrait_video_url: 'videos/clip3_portrait.mp4',
+      },
+      {
+        id: 'clip4',
+        title: 'Alley-Oop Finish',
+        play_type: 'Alley-Oop',
+        original_video_url: 'videos/clip4.mp4',
+        portrait_video_url: 'videos/clip4_portrait.mp4',
+      },
+      {
+        id: 'clip5',
+        title: 'And-One Drive',
+        play_type: 'Fast Break',
+        original_video_url: 'videos/clip5.mp4',
+        portrait_video_url: 'videos/clip5_portrait.mp4',
+      },
+      {
+        id: 'clip6',
+        title: 'Three-Pointer Splash',
+        play_type: 'Three Pointer',
+        original_video_url: 'videos/clip6.mp4',
+        portrait_video_url: 'videos/clip6_portrait.mp4',
+      },
+      {
+        id: 'clip7',
+        title: 'Block and Recover',
+        play_type: 'Block',
+        original_video_url: 'videos/clip7.mp4',
+        portrait_video_url: 'videos/clip7_portrait.mp4',
+      },
+      {
+        id: 'clip8',
+        title: 'Crossover Dribble',
+        play_type: 'Crossover',
+        original_video_url: 'videos/clip8.mp4',
+        portrait_video_url: 'videos/clip8_portrait.mp4',
+      },
+      {
+        id: 'clip9',
+        title: 'Jump Shot',
+        play_type: 'Jump Shot',
+        original_video_url: 'videos/clip9.mp4',
+        portrait_video_url: 'videos/clip9_portrait.mp4',
+      },
+      {
+        id: 'clip10',
+        title: 'Rebound and Putback',
+        play_type: 'Rebound',
+        original_video_url: 'videos/clip10.mp4',
+        portrait_video_url: 'videos/clip10_portrait.mp4',
+      },
+      {
+        id: 'clip11',
+        title: 'Assist Pass',
+        play_type: 'Assist',
+        original_video_url: 'videos/clip11.mp4',
+        portrait_video_url: 'videos/clip11_portrait.mp4',
+      },
+      {
+        id: 'clip12',
+        title: 'Free Throw',
+        play_type: 'Free Throw',
+        original_video_url: 'videos/clip12.mp4',
+        portrait_video_url: 'videos/clip12_portrait.mp4',
+      },
+      {
+        id: 'clip13',
+        title: 'Timeout Call',
+        play_type: 'Timeout',
+        original_video_url: 'videos/clip13.mp4',
+        portrait_video_url: 'videos/clip13_portrait.mp4',
+      },
+      {
+        id: 'clip14',
+        title: 'Victory Celebration',
+        play_type: 'Celebration',
+        original_video_url: 'videos/clip14.mp4',
+        portrait_video_url: 'videos/clip14_portrait.mp4',
+      },
+    ];
+
+    // ── ELEMENTS ───────────────────────────────────────────────────────────────
+    const selectorEl = document.getElementById('clip-selector');
+    const videoLand = document.getElementById('video-landscape');
+    const videoPort = document.getElementById('video-portrait');
+    const landWrapper = document.getElementById('landscape-wrapper');
+    const portWrapper = document.getElementById('portrait-wrapper');
+    const playersRow = document.getElementById('players-row');
+    const seekBar = document.getElementById('seek-bar');
+    const timeCurrent = document.getElementById('time-current');
+    const timeDuration = document.getElementById('time-duration');
+    const playBtn = document.getElementById('play-btn');
+    const iconPlay = document.getElementById('icon-play');
+    const iconPause = document.getElementById('icon-pause');
+
+    // ── STATE ──────────────────────────────────────────────────────────────────
+    let activeClipIdx = 0;
+    let isSeeking = false;   // true while user drags the seek bar
+    let syncGuard = false;   // prevents event ping-pong between videos
+
+    // ── SIZING ────────────────────────────────────────────────────────────────
+    // Compute video dimensions so both fit side-by-side without scrolling.
+    // Available height = players-row height. Available width = players-row width minus gap.
+    // landscape ratio = 16/9, portrait ratio = 9/16.
+    // We allocate width proportionally: landscape gets 16/(16+9) of total, portrait 9/(16+9).
+    // Then pick the height that satisfies both aspect-ratio constraints.
+    function sizeVideos() {
+      const GAP = 24;
+      const rowRect = playersRow.getBoundingClientRect();
+      const totalW = rowRect.width - GAP;
+      const totalH = rowRect.height - 40; // leave room for labels
+
+      // landscape natural width for a given height h: w = h * 16/9
+      // portrait  natural width for a given height h: w = h * 9/16
+      // combined width for height h: h*(16/9 + 9/16) = h*(256/144 + 81/144) = h*337/144
+      const ratio = 16 / 9 + 9 / 16;           // ≈ 2.34
+      const hFromW = totalW / ratio;
+      const h = Math.min(hFromW, totalH);
+
+      const landW = Math.round(h * 16 / 9);
+      const portW = Math.round(h * 9 / 16);
+      const hPx = Math.round(h);
+
+      landWrapper.style.width = landW + 'px';
+      landWrapper.style.height = hPx + 'px';
+      portWrapper.style.width = portW + 'px';
+      portWrapper.style.height = hPx + 'px';
+    }
+
+    window.addEventListener('resize', sizeVideos);
+    // Run after layout settles
+    requestAnimationFrame(() => requestAnimationFrame(sizeVideos));
+
+    // ── CLIP SELECTOR ─────────────────────────────────────────────────────────
+    function buildSelector() {
+      selectorEl.innerHTML = '';
+      CLIPS.forEach((clip, i) => {
+        const card = document.createElement('div');
+        card.className = 'clip-card' + (i === activeClipIdx ? ' active' : '');
+        card.innerHTML = `
+          <div class="clip-title">${clip.title}</div>
+          <div class="clip-tag">${clip.play_type}</div>
+        `;
+        card.addEventListener('click', () => loadClip(i));
+        selectorEl.appendChild(card);
+      });
+    }
+
+    // ── LOAD CLIP ─────────────────────────────────────────────────────────────
+    function loadClip(idx) {
+      if (idx === activeClipIdx && videoLand.src) return;
+      activeClipIdx = idx;
+
+      const clip = CLIPS[idx];
+      const wasPlaying = !videoLand.paused;
+
+      pause();
+
+      videoLand.src = clip.original_video_url;
+      videoPort.src = clip.portrait_video_url;
+      videoLand.load();
+      videoPort.load();
+
+      seekBar.value = 0;
+      seekBar.style.setProperty('--seek-pct', '0%');
+      timeCurrent.textContent = '0:00';
+      timeDuration.textContent = '0:00';
+
+      // Update selector cards
+      document.querySelectorAll('.clip-card').forEach((el, i) => {
+        el.classList.toggle('active', i === idx);
+      });
+
+      videoLand.addEventListener('loadedmetadata', onMetadata, { once: true });
+    }
+
+    function onMetadata() {
+      const dur = videoLand.duration || 0;
+      seekBar.max = dur;
+      timeDuration.textContent = formatTime(dur);
+      sizeVideos();
+    }
+
+    // ── SYNC LOGIC ────────────────────────────────────────────────────────────
+    // Primary = landscape; portrait follows it.
+    videoLand.addEventListener('timeupdate', () => {
+      if (isSeeking) return;
+      const t = videoLand.currentTime;
+      updateSeekUI(t);
+      if (!syncGuard && Math.abs(videoPort.currentTime - t) > 0.1) {
+        syncGuard = true;
+        videoPort.currentTime = t;
+        syncGuard = false;
+      }
+    });
+
+    videoLand.addEventListener('ended', () => {
+      pause();
+    });
+
+    function play() {
+      videoLand.play().catch(() => { });
+      videoPort.play().catch(() => { });
+      iconPlay.style.display = 'none';
+      iconPause.style.display = '';
+    }
+
+    function pause() {
+      videoLand.pause();
+      videoPort.pause();
+      iconPlay.style.display = '';
+      iconPause.style.display = 'none';
+    }
+
+    playBtn.addEventListener('click', () => {
+      if (videoLand.paused) play(); else pause();
+    });
+
+    // ── SEEK BAR ──────────────────────────────────────────────────────────────
+    seekBar.addEventListener('mousedown', () => { isSeeking = true; });
+    seekBar.addEventListener('touchstart', () => { isSeeking = true; }, { passive: true });
+
+    seekBar.addEventListener('input', () => {
+      const t = parseFloat(seekBar.value);
+      updateSeekUI(t);
+    });
+
+    seekBar.addEventListener('change', () => {
+      const t = parseFloat(seekBar.value);
+      videoLand.currentTime = t;
+      videoPort.currentTime = t;
+      isSeeking = false;
+    });
+
+    document.addEventListener('mouseup', () => { isSeeking = false; });
+    document.addEventListener('touchend', () => { isSeeking = false; });
+
+    function updateSeekUI(t) {
+      const dur = videoLand.duration || 0;
+      seekBar.value = t;
+      const pct = dur > 0 ? (t / dur) * 100 : 0;
+      seekBar.style.setProperty('--seek-pct', pct.toFixed(2) + '%');
+      timeCurrent.textContent = formatTime(t);
+      if (dur > 0) timeDuration.textContent = formatTime(dur);
+    }
+
+    // ── HELPERS ───────────────────────────────────────────────────────────────
+    function formatTime(s) {
+      if (!isFinite(s)) return '0:00';
+      const m = Math.floor(s / 60);
+      const sec = Math.floor(s % 60);
+      return `${m}:${sec.toString().padStart(2, '0')}`;
+    }
+
+    // ── INIT ──────────────────────────────────────────────────────────────────
+    buildSelector();
+    loadClip(0);
+  </script>
+</body>
+
+</html>
